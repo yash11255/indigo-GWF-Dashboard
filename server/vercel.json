@@ -1,7 +1,8 @@
 {
   "version": 2,
-  "buildCommand": "npm install && node scripts/prebuild.js",
-  "installCommand": "npm install",
+  "buildCommand": "npm install && node scripts/prebuild.js && mkdir -p public",
+  "outputDirectory": "public",
+  "installCommand": "echo 'deps handled in buildCommand'",
   "functions": {
     "api/index.js": {
       "maxDuration": 30,
