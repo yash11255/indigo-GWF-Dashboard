@@ -8,7 +8,8 @@ const { getCache, loadData, normalizeDate, setMockMode, setApiMode, getMode, set
 router.use(auth);
 
 // ─── File upload storage (/tmp on Vercel, uploads/ locally) ──────────────────
-const uploadDir = process.env.VERCEL ? '/tmp/uploads' : path.join(__dirname, '../../../uploads');
+// __dirname = server/src/routes/ → ../../uploads = server/uploads/
+const uploadDir = process.env.VERCEL ? '/tmp/uploads' : path.join(__dirname, '../../uploads');
 require('fs').mkdirSync(uploadDir, { recursive: true });
 const storage = multer.diskStorage({
   destination: uploadDir,

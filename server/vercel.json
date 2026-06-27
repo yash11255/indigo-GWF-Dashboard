@@ -1,26 +1,16 @@
 {
   "version": 2,
-  "buildCommand": "node ../scripts/prebuild.js && npm install",
+  "buildCommand": "npm install && node scripts/prebuild.js",
   "installCommand": "npm install",
   "functions": {
     "api/index.js": {
       "maxDuration": 30,
       "memory": 1024,
-      "includeFiles": "src/**,data/**,node_modules/**,package.json"
+      "includeFiles": "src/**,data/**,node_modules/**,package.json,27062026_IGWF_Applicants_List.xlsx"
     }
   },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index" }
-  ],
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin",  "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PUT,DELETE,OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "Content-Type,Authorization" }
-      ]
-    }
   ],
   "env": {
     "NODE_ENV": "production",

@@ -7,9 +7,10 @@
 const fs   = require('fs');
 const path = require('path');
 
+// __dirname = server/scripts/ → ROOT = server/
 const ROOT      = path.join(__dirname, '..');
 const DATA_FILE = path.join(ROOT, '27062026_IGWF_Applicants_List.xlsx');
-const OUT_DIR   = path.join(ROOT, 'server', 'data');
+const OUT_DIR   = path.join(ROOT, 'data');
 const OUT_FILE  = path.join(OUT_DIR, 'cache.json');
 
 if (!fs.existsSync(DATA_FILE)) {
@@ -20,7 +21,7 @@ if (!fs.existsSync(DATA_FILE)) {
 }
 
 // Inline the dataLoader logic here so prebuild is self-contained
-const XLSX = require(path.join(ROOT, 'server', 'node_modules', 'xlsx'));
+const XLSX = require(path.join(ROOT, 'node_modules', 'xlsx'));
 
 const NEEDED = [
   'ApplicationId','Application Type','AppliedBy','DraftDate','AppliedDate','Status',
@@ -225,5 +226,5 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
 const json = JSON.stringify(cache);
 fs.writeFileSync(OUT_FILE, json);
 const sizeMB = (json.length / 1024 / 1024).toFixed(1);
-console.log(`\n✅ Cache written to server/data/cache.json (${sizeMB} MB) in ${Date.now()-t0}ms`);
+console.log(`\n✅ Cache written to data/cache.json (${sizeMB} MB) in ${Date.now()-t0}ms`);
 console.log(`   Cold start will now load in ~50ms instead of ~6000ms\n`);
