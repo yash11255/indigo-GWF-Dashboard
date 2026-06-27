@@ -1,0 +1,14 @@
+{
+  "name": "indigo-gwf-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "prebuild": "node scripts/prebuild.js",
+    "build": "npm run prebuild && cd client && npm install && npm run build",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

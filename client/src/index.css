@@ -1,0 +1,93 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── IBM Carbon Design System inspired ────────────────────────────────────── */
+@layer base {
+  * { box-sizing: border-box; }
+  html { font-size: 14px; }
+  body {
+    font-family: 'IBM Plex Sans', 'Inter', system-ui, sans-serif;
+    background: #F4F4F4;
+    color: #161616;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: #E0E0E0; }
+  ::-webkit-scrollbar-thumb { background: #8D8D8D; }
+  ::-webkit-scrollbar-thumb:hover { background: #525252; }
+}
+
+@layer components {
+  /* IBM-style cards — no border-radius, clean 1px border */
+  .sf-card, .card {
+    @apply bg-white p-4;
+    border: 1px solid #E0E0E0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply font-semibold py-2 px-4 text-sm text-white transition-all;
+    background: #0F62FE;
+    border: none;
+    border-radius: 0;
+  }
+  .btn-primary:hover { background: #0353E9; }
+
+  .btn-neutral {
+    @apply bg-white font-medium py-1.5 px-3 border text-sm transition-all;
+    color: #161616;
+    border-color: #8D8D8D;
+    border-radius: 0;
+  }
+  .btn-neutral:hover { background: #E0E0E0; }
+
+  .btn-ghost {
+    @apply font-medium py-1.5 px-3 text-sm transition-all;
+    color: #0F62FE;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 0;
+  }
+  .btn-ghost:hover { background: #EDF5FF; }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium;
+    border-radius: 0;
+  }
+
+  /* Sub-nav tabs */
+  .subnav-tab {
+    @apply inline-flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer select-none;
+    color: #525252;
+    border-bottom-color: transparent;
+  }
+  .subnav-tab:hover { color: #161616; background: #F4F4F4; }
+  .subnav-tab.active {
+    color: #0F62FE;
+    border-bottom-color: #0F62FE;
+    background: #EDF5FF;
+  }
+
+  /* Section headers */
+  .section-title { @apply font-semibold text-sm; color: #161616; }
+  .section-subtitle { @apply text-xs mt-0.5; color: #6F6F6F; }
+
+  /* IBM data table */
+  .ibm-table { @apply w-full text-sm; border-collapse: collapse; }
+  .ibm-table thead tr { background: #E0E0E0; }
+  .ibm-table thead th {
+    @apply px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider;
+    color: #525252;
+    border-bottom: 1px solid #C6C6C6;
+  }
+  .ibm-table tbody tr { border-bottom: 1px solid #E0E0E0; }
+  .ibm-table tbody tr:nth-child(even) { background: #F4F4F4; }
+  .ibm-table tbody tr:hover { background: #EDF5FF; }
+  .ibm-table tbody td { @apply px-4 py-2.5 text-sm; color: #161616; }
+}

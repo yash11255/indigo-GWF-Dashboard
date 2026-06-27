@@ -1,0 +1,37 @@
+# Node
+node_modules/
+server/node_modules/
+client/node_modules/
+npm-debug.log*
+
+# Build outputs
+client/dist/
+server/data/cache.json
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Uploads (large user files)
+uploads/
+server/uploads/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Large analysis files (not needed for the app)
+Application_Tracker_IGWF_2026_Analysis.xlsx
+ai_fills.json
+registed.csv
+Draft.csv
+applied.xlsx
+tests/
