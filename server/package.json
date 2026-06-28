@@ -4,7 +4,6 @@
   "description": "API server for Indigo Giving Wings to Fly Scholarship Dashboard",
   "main": "index.js",
   "scripts": {
-    "build": "node scripts/prebuild.js",
     "start": "node index.js",
     "dev": "nodemon index.js"
   },
