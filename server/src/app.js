@@ -34,4 +34,9 @@ app.get('/', (req, res) => {
   res.json({ service: 'IndiGo GWF Dashboard API', status: 'ok', version: '1.0.0' });
 });
 
+// 404 handler — shows exactly which path was unmatched
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found', method: req.method, path: req.path });
+});
+
 module.exports = app;
