@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import ApiLogPanel from './components/ApiLogPanel';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -29,7 +28,6 @@ export default function App() {
             </PrivateRoute>
           } />
         </Routes>
-        <ApiLogPanel />
       </BrowserRouter>
     </AuthProvider>
   );

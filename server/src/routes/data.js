@@ -7,6 +7,33 @@ const { getCache, loadData, normalizeDate, setMockMode, setApiMode, getMode, set
 
 router.use(auth);
 
+// ─── Mock override data (editable via Settings → Demo Mode) ──────────────────
+let _mockOverrides = {
+  stats: { totalRegistered: 5000, totalDrafts: 2200, totalApplied: 1100, uniqueStates: 28, passportReady: 800, laptopReady: 1200 },
+  regions: [
+    { region: 'Northern India',  draft: 750, complete: 380 },
+    { region: 'Southern India',  draft: 600, complete: 310 },
+    { region: 'Western India',   draft: 420, complete: 220 },
+    { region: 'Eastern India',   draft: 280, complete: 110 },
+    { region: 'Central India',   draft: 100, complete:  45 },
+    { region: 'Northeast India', draft:  50, complete:  35 },
+    { region: 'Other',           draft:   0, complete:   0 },
+  ],
+  employment: [
+    { label: 'Student',    Draft: 1500, Complete: 750 },
+    { label: 'Unemployed', Draft:  450, Complete: 220 },
+    { label: 'Employed',   Draft:  250, Complete: 130 },
+  ],
+  education: [
+    { label: 'Completed', Draft: 1300, Complete: 650 },
+    { label: 'Pursuing',  Draft:  900, Complete: 450 },
+  ],
+  dgca: {
+    medical:  { yes: { draft: 200, applied: 120 }, no: { draft: 1800, applied: 850 }, noData: { draft: 200, applied: 130 } },
+    computer: { yes: { draft: 150, applied: 100 }, no: { draft: 1850, applied: 870 }, noData: { draft: 200, applied: 130 } },
+  },
+};
+
 // ─── File upload storage (/tmp on Vercel, uploads/ locally) ──────────────────
 // __dirname = server/src/routes/ → ../../uploads = server/uploads/
 const uploadDir = process.env.VERCEL ? '/tmp/uploads' : path.join(__dirname, '../../uploads');
@@ -48,6 +75,16 @@ router.post('/settings/upload', upload.single('file'), (req, res) => {
   res.json({ ok: true, filename: req.file.originalname, path: req.file.path });
 });
 
+router.get('/settings/mock-overrides', (req, res) => {
+  res.json(_mockOverrides);
+});
+
+router.post('/settings/mock-overrides', (req, res) => {
+  _mockOverrides = req.body;
+  setMockMode(true);
+  res.json({ ok: true });
+});
+
 router.post('/settings/api-source', async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'URL required' });
@@ -81,16 +118,32 @@ function byDate(arr, from, to, field = 'submittedDate') {
 
 // ─── Stats / overview ─────────────────────────────────────────────────────────
 router.get('/stats', (req, res) => {
+  if (getMode().mockMode) {
+    const s = _mockOverrides.stats;
+    return res.json({
+      totalRegistered: s.totalRegistered,
+      totalDrafts:     s.totalDrafts,
+      totalApplied:    s.totalApplied,
+      totalUnique:     s.totalDrafts + s.totalApplied,
+      uniqueStates:    s.uniqueStates,
+      conversionRate:  s.totalRegistered ? ((s.totalDrafts / s.totalRegistered) * 100).toFixed(1) : 0,
+      draftToApplied:  s.totalDrafts     ? ((s.totalApplied / s.totalDrafts)    * 100).toFixed(1) : 0,
+      passportReady:   s.passportReady,
+      laptopReady:     s.laptopReady,
+      lastUpdated:     new Date().toISOString(),
+    });
+  }
   const { from, to } = req.query;
-  const cache = getCache();
+  const cache      = getCache();
   const registered = byDate(cache.registered, from, to, 'registrationDate');
-  const drafts     = byDate(cache.drafts,     from, to);
-  const applied    = byDate(cache.applied,    from, to);
+  const combined = byDate(getCombined(), from, to);
+  const drafts   = combined.filter(r => r.applicationType !== 'Complete');
+  const applied  = combined.filter(r => r.applicationType === 'Complete');
 
-  const allAppIds = new Set([...drafts.map(d => d.applicationId), ...applied.map(a => a.applicationId)]);
-  const passportReady = [...drafts, ...applied].filter(d => d.hasPassport === 'Yes').length;
-  const laptopReady   = [...drafts, ...applied].filter(d => d.hasLaptop  === 'Yes').length;
-  const uniqueStates  = new Set([...drafts, ...applied].map(d => d.currentState).filter(s => s && s !== 'Not Specified'));
+  const allAppIds    = new Set(combined.map(r => r.applicationId).filter(Boolean));
+  const passportReady = combined.filter(r => r.hasPassport === 'Yes').length;
+  const laptopReady   = combined.filter(r => r.hasLaptop   === 'Yes').length;
+  const uniqueStates  = new Set(combined.map(r => r.currentState).filter(s => s && s !== 'Not Specified'));
 
   res.json({
     totalRegistered: registered.length,
@@ -99,7 +152,7 @@ router.get('/stats', (req, res) => {
     totalUnique:     allAppIds.size,
     uniqueStates:    uniqueStates.size,
     conversionRate:  registered.length ? ((drafts.length / registered.length) * 100).toFixed(1) : 0,
-    draftToApplied:  drafts.length     ? ((applied.length  / drafts.length)   * 100).toFixed(1) : 0,
+    draftToApplied:  drafts.length     ? ((applied.length / drafts.length)    * 100).toFixed(1) : 0,
     passportReady,
     laptopReady,
     lastUpdated: cache.lastUpdated,
@@ -236,6 +289,18 @@ router.get('/draft-analysis', (req, res) => {
   });
 });
 
+// ─── Applied status summary ───────────────────────────────────────────────────
+router.get('/applied-status', (req, res) => {
+  const { applied } = getCache();
+  const counts = {};
+  applied.forEach(a => {
+    const s = a.status || 'Pending';
+    counts[s] = (counts[s] || 0) + 1;
+  });
+  res.json(Object.entries(counts).map(([status, count]) => ({ status, count }))
+    .sort((a, b) => b.count - a.count));
+});
+
 // ─── Applied routes ───────────────────────────────────────────────────────────
 router.get('/applied', (req, res) => {
   const { page = 1, limit = 50, state, gender, search, from, to } = req.query;
@@ -364,16 +429,16 @@ const appType = r => r.applicationType === 'Complete' ? 'Complete' : 'Draft';
 router.get('/date-wise', (req, res) => {
   const { from, to } = req.query;
   const combined = byDate(getCombined(), from, to);
-  const byDate = {};
+  const byDay = {};
   combined.forEach(a => {
     const date = normalizeDate(a.submittedDate);
     if (!date) return;
-    if (!byDate[date]) byDate[date] = { date, draft: 0, complete: 0, total: 0 };
-    if (a.applicationType === 'Complete') byDate[date].complete++;
-    else byDate[date].draft++;
-    byDate[date].total++;
+    if (!byDay[date]) byDay[date] = { date, draft: 0, complete: 0, total: 0 };
+    if (a.applicationType === 'Complete') byDay[date].complete++;
+    else byDay[date].draft++;
+    byDay[date].total++;
   });
-  res.json(Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date)));
+  res.json(Object.values(byDay).sort((a, b) => a.date.localeCompare(b.date)));
 });
 
 // Normalize uppercase state names to title case for region lookup
@@ -383,6 +448,11 @@ function toTitleCase(s) {
 }
 
 router.get('/region-wise', (req, res) => {
+  if (getMode().mockMode) {
+    return res.json(_mockOverrides.regions.map(r => ({
+      region: r.region, draft: r.draft, complete: r.complete, total: r.draft + r.complete,
+    })));
+  }
   const { from, to } = req.query;
   const combined = byDate(getCombined(), from, to);
   const byRegion = {};
@@ -407,14 +477,18 @@ router.get('/state-breakdown', (req, res) => {
   const combined = byDate(getCombined(), from, to);
   const byState = {};
   combined.forEach(a => {
-    const state = (a.currentState || '').trim();
-    if (!state || state === 'Not Specified' || state === '-') return;
+    const raw = (a.currentState || '').trim();
+    const state = (!raw || raw === 'Not Specified' || raw === '-') ? 'Unknown / Not Specified' : raw;
     if (!byState[state]) byState[state] = { state, draft: 0, complete: 0, total: 0 };
     if (a.applicationType === 'Complete') byState[state].complete++;
     else byState[state].draft++;
     byState[state].total++;
   });
-  res.json(Object.values(byState).sort((a, b) => b.total - a.total).slice(0, 25));
+  const sorted = Object.values(byState).sort((a, b) => b.total - a.total);
+  // Move Unknown to the end
+  const unknown = sorted.findIndex(r => r.state === 'Unknown / Not Specified');
+  if (unknown > 0) sorted.push(sorted.splice(unknown, 1)[0]);
+  res.json(sorted);
 });
 
 router.get('/district-wise', (req, res) => {
@@ -423,45 +497,73 @@ router.get('/district-wise', (req, res) => {
   const byDist = {};
   combined.forEach(a => {
     if (stateFilter && a.currentState !== stateFilter) return;
-    const dist = (a.currentDistrict || '').trim();
-    if (!dist || dist === 'Not Specified' || dist === '-') return;
-    const key = `${a.currentState}|${dist}`;
-    if (!byDist[key]) byDist[key] = { state: a.currentState, district: dist, draft: 0, complete: 0, total: 0 };
+    const rawDist  = (a.currentDistrict || '').trim();
+    const rawState = (a.currentState    || '').trim();
+    const dist  = (!rawDist  || rawDist  === 'Not Specified' || rawDist  === '-') ? 'Unknown' : rawDist;
+    const state = (!rawState || rawState === 'Not Specified' || rawState === '-') ? 'Unknown' : rawState;
+    const key = `${state}|${dist}`;
+    if (!byDist[key]) byDist[key] = { state, district: dist, draft: 0, complete: 0, total: 0 };
     if (a.applicationType === 'Complete') byDist[key].complete++;
     else byDist[key].draft++;
     byDist[key].total++;
   });
-  res.json(Object.values(byDist).sort((a, b) => b.total - a.total).slice(0, 30));
+  const sorted = Object.values(byDist).sort((a, b) => b.total - a.total);
+  // Move Unknown rows to the end
+  const known   = sorted.filter(r => r.district !== 'Unknown' && r.state !== 'Unknown');
+  const unknown = sorted.filter(r => r.district === 'Unknown' || r.state  === 'Unknown');
+  res.json([...known, ...unknown]);
 });
 
-router.get('/dgca-medical', (req, res) => {
+router.get('/dgca-combined', (req, res) => {
+  if (getMode().mockMode) {
+    const d = _mockOverrides.dgca;
+    const toArr = (obj) => [
+      { label: 'Yes',     count: obj.yes.draft    + obj.yes.applied    },
+      { label: 'No',      count: obj.no.draft     + obj.no.applied     },
+      { label: 'No Data', count: obj.noData.draft + obj.noData.applied },
+    ];
+    const toDraft   = (obj) => [{ label:'Yes',count:obj.yes.draft   },{ label:'No',count:obj.no.draft   },{ label:'No Data',count:obj.noData.draft   }];
+    const toApplied = (obj) => [{ label:'Yes',count:obj.yes.applied },{ label:'No',count:obj.no.applied },{ label:'No Data',count:obj.noData.applied }];
+    const totDraft   = d.medical.yes.draft   + d.medical.no.draft   + d.medical.noData.draft;
+    const totApplied = d.medical.yes.applied + d.medical.no.applied + d.medical.noData.applied;
+    return res.json({
+      medical:  { draft: toDraft(d.medical),  applied: toApplied(d.medical),  all: toArr(d.medical)  },
+      computer: { draft: toDraft(d.computer), applied: toApplied(d.computer), all: toArr(d.computer) },
+      totals:   { draft: totDraft, applied: totApplied, all: totDraft + totApplied },
+    });
+  }
   const { from, to } = req.query;
   const combined = byDate(getCombined(), from, to);
-  const complete  = combined.filter(r => r.applicationType === 'Complete');
-  const statusMap = {};
-  complete.forEach(r => { const v = r.dgcaMedical||'No Data'; statusMap[v]=(statusMap[v]||0)+1; });
-  const incomeMap = {};
-  complete.forEach(r => {
-    const v = r.familyIncome||''; if (v.includes('Lakh')||v.includes('lakh')) incomeMap[v]=(incomeMap[v]||0)+1;
-  });
+  const drafts   = combined.filter(r => r.applicationType !== 'Complete');
+  const applied  = combined.filter(r => r.applicationType === 'Complete');
+
+  const countBy = (arr, field) => {
+    const m = {};
+    arr.forEach(r => { const v = r[field] || 'No Data'; m[v] = (m[v] || 0) + 1; });
+    return Object.entries(m).map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count);
+  };
+
   res.json({
-    status: Object.entries(statusMap).map(([label,count])=>({label,count})).sort((a,b)=>b.count-a.count),
-    income: Object.entries(incomeMap).map(([label,count])=>({label,count})).sort((a,b)=>b.count-a.count),
-    totalComplete: complete.length,
-    totalApplicants: combined.length,
+    medical: {
+      draft:   countBy(drafts,   'dgcaMedical'),
+      applied: countBy(applied,  'dgcaMedical'),
+      all:     countBy(combined, 'dgcaMedical'),
+    },
+    computer: {
+      draft:   countBy(drafts,   'dgcaComputer'),
+      applied: countBy(applied,  'dgcaComputer'),
+      all:     countBy(combined, 'dgcaComputer'),
+    },
+    totals: { draft: drafts.length, applied: applied.length, all: combined.length },
   });
-});
-
-router.get('/dgca-computer', (req, res) => {
-  const { from, to } = req.query;
-  const combined = byDate(getCombined(), from, to);
-  const clean = combined.filter(r => ['Yes','No','No Data'].includes(r.dgcaComputer));
-  const summary = {};
-  clean.forEach(r => { summary[r.dgcaComputer]=(summary[r.dgcaComputer]||0)+1; });
-  res.json({ breakdown: crossTab(clean, r=>r.dgcaComputer, appType), summary });
 });
 
 router.get('/employment-status', (req, res) => {
+  if (getMode().mockMode) {
+    return res.json(_mockOverrides.employment.map(r => ({
+      ...r, Total: r.Draft + r.Complete,
+    })));
+  }
   const { from, to } = req.query;
   const combined = byDate(getCombined(), from, to);
   const clean = combined.filter(r => ['Student','Employed','Unemployed'].includes(r.employmentStatus));
@@ -469,6 +571,11 @@ router.get('/employment-status', (req, res) => {
 });
 
 router.get('/education-status', (req, res) => {
+  if (getMode().mockMode) {
+    return res.json(_mockOverrides.education.map(r => ({
+      ...r, Total: r.Draft + r.Complete,
+    })));
+  }
   const { from, to } = req.query;
   const combined = byDate(getCombined(), from, to);
   const clean = combined.filter(r => r.educationStatus && (r.educationStatus.includes('Complet')||r.educationStatus.includes('Pursuing')));

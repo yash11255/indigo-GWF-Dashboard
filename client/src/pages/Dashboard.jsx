@@ -2,10 +2,7 @@ import { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import TopNavBar from '../components/layout/TopNavBar';
 import PageHeader from '../components/layout/Header';
-import CallingTracker from './CallingTracker';
 import Analytics from './Analytics';
-import DraftAnalysis from './Draft';
-import Overview from './Overview';
 import Settings from './Settings';
 import DataTable from '../components/DataTable';
 import api from '../utils/api';
@@ -43,13 +40,13 @@ function AppliedPage() {
     Rejected:       { dot: '#C23934', text: '#C23934' },
   };
 
-  const total = statusData?.reduce((s, d) => s + d.count, 0) || 728;
+  const total = statusData?.reduce((s, d) => s + d.count, 0) || 0;
 
   return (
     <div className="flex-1 flex flex-col min-h-0" style={{ background: '#F3F2F2' }}>
       <PageHeader
-        title="Final Applications"
-        subtitle={`${total.toLocaleString('en-IN')} total applications submitted`}
+        title="Applied Applications"
+        subtitle="Students who have submitted their final scholarship application"
       />
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
         {statusData?.length > 0 && (
@@ -93,23 +90,16 @@ export default function Dashboard() {
       <TopNavBar onReload={() => setRefreshKey(k => k + 1)} />
       <div className="flex-1 flex flex-col min-h-0">
         <Routes>
-          <Route index element={<Overview key={refreshKey} />} />
-          {/* Admin-only data tables */}
-          <Route path="registered" element={isAdmin
-            ? <TablePage type="registered" title="Registered Students"
-                subtitle="All students who created a portal account" />
-            : <Navigate to="/" replace />
-          } />
+          <Route index element={<Navigate to="/analytics" replace />} />
+          <Route path="analytics" element={<Analytics key={refreshKey} />} />
           <Route path="drafts" element={isAdmin
             ? <TablePage type="drafts" title="Draft Applications"
                 subtitle="Students who started their scholarship application" />
-            : <Navigate to="/" replace />
+            : <Navigate to="/analytics" replace />
           } />
-          <Route path="applied" element={isAdmin ? <AppliedPage /> : <Navigate to="/" replace />} />
-          <Route path="analytics" element={<Analytics />} />
-          <Route path="draft-analysis" element={<DraftAnalysis />} />
-          <Route path="calling" element={isAdmin ? <CallingTracker /> : <Navigate to="/" replace />} />
+          <Route path="applied" element={isAdmin ? <AppliedPage /> : <Navigate to="/analytics" replace />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="*" element={<Navigate to="/analytics" replace />} />
         </Routes>
       </div>
     </div>

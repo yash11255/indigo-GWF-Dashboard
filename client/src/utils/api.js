@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { pushLog } from '../components/ApiLogPanel';
 import { getDateRange } from './dateRange';
 
 const api = axios.create({
@@ -7,10 +6,9 @@ const api = axios.create({
   timeout: 30000,
 });
 
-// ── Request: stamp start time + inject global date range ──────────────────────
-const DATE_EXEMPT = ['/auth/', '/settings/'];
+// Table routes show ALL records regardless of the global date picker
+const DATE_EXEMPT = ['/auth/', '/settings/', '/data/drafts', '/data/applied', '/data/registered', '/data/export'];
 api.interceptors.request.use(config => {
-  config.metadata = { start: Date.now() };
   const exempt = DATE_EXEMPT.some(p => (config.url || '').includes(p));
   if (!exempt) {
     const { from, to } = getDateRange();
@@ -19,28 +17,11 @@ api.interceptors.request.use(config => {
   return config;
 });
 
-// ── Response: log success ─────────────────────────────────────────────────────
+// ── Response: handle auth errors ──────────────────────────────────────────────
 api.interceptors.response.use(
-  res => {
-    pushLog({
-      status: res.status,
-      method: res.config.method?.toUpperCase(),
-      url: res.config.url,
-      ms: Date.now() - (res.config.metadata?.start ?? Date.now()),
-      data: res.data,
-    });
-    return res;
-  },
+  res => res,
   err => {
     const res = err.response;
-    pushLog({
-      status: res?.status ?? 'ERR',
-      method: err.config?.method?.toUpperCase(),
-      url: err.config?.url,
-      ms: Date.now() - (err.config?.metadata?.start ?? Date.now()),
-      error: res?.data ? JSON.stringify(res.data) : err.message,
-    });
-
     if (res?.status === 401 || res?.status === 403) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');

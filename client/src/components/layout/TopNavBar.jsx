@@ -5,48 +5,41 @@ import api from '../../utils/api';
 import { getDateRange, setDateRange, onDateRangeChange } from '../../utils/dateRange';
 
 const ADMIN_NAV = [
-  { to: '/', label: 'Overview', end: true },
-  { to: '/registered', label: 'Registered' },
-  { to: '/drafts', label: 'Draft Applications' },
-  { to: '/applied', label: 'Applied' },
-  { to: '/analytics', label: 'Analytics' },
-  { to: '/draft-analysis', label: 'Draft Analysis' },
-  { to: '/calling', label: 'Calling Tracker' },
-  { to: '/settings', label: 'Settings' },
+  { to: '/analytics',  label: 'Analytics',           end: true },
+  { to: '/drafts',     label: 'Draft Applications'              },
+  { to: '/applied',    label: 'Applied'                         },
+  { to: '/settings',   label: 'Settings'                        },
 ];
 
 const CLIENT_NAV = [
-  { to: '/', label: 'Overview', end: true },
-  { to: '/analytics', label: 'Analytics' },
-  { to: '/draft-analysis', label: 'Draft Analysis' },
-  { to: '/settings', label: 'Settings' },
+  { to: '/analytics', label: 'Analytics', end: true },
+  { to: '/settings',  label: 'Settings'             },
 ];
 
-// BharatCares brand logo — uses image if available
-function BrandLogo({ compact = false }) {
+// BharatCares brand logo
+function BrandLogo() {
   const [imgFailed, setImgFailed] = useState(false);
   return (
-    <div className="flex items-center gap-2 select-none flex-shrink-0">
-      {!imgFailed
-        ? <img src="/bharatcares-logo.png" alt="BharatCares" height={28} className="h-7 w-auto object-contain"
-            onError={() => setImgFailed(true)} />
-        : (
-          <svg width="30" height="30" viewBox="0 0 100 100" fill="none">
-            <rect x="0"  y="0"  width="44" height="44" rx="3" fill="#00AEEF"/>
-            <rect x="56" y="0"  width="44" height="44" rx="3" fill="#F7941D"/>
-            <rect x="0"  y="56" width="44" height="44" rx="3" fill="#39B54A"/>
-            <rect x="56" y="56" width="44" height="44" rx="3" fill="#0072BC"/>
-          </svg>
-        )
-      }
-      {!compact && (
-        <div className="leading-tight hidden sm:block">
-          <div className="font-bold text-sm leading-none text-white">IndiGo — Giving Wings to Fly</div>
-          <div className="text-[9px] font-medium tracking-wider uppercase" style={{ color: 'rgba(255,255,255,0.45)' }}>
-            Scholarship Management System
-          </div>
+    <div className="flex items-center gap-3 select-none flex-shrink-0">
+      {/* White chip so the coloured logo reads on the dark bar */}
+      <div style={{ background: '#fff', padding: '3px 10px', borderRadius: 2, display: 'flex', alignItems: 'center' }}>
+        {!imgFailed
+          ? <img src="/logo-png.png" alt="BharatCares"
+              style={{ height: 30, width: 'auto', display: 'block' }}
+              onError={() => setImgFailed(true)} />
+          : (
+            <svg width="80" height="30" viewBox="0 0 100 40" fill="none">
+              <text x="0" y="28" fontFamily="system-ui" fontWeight="700" fontSize="26" fill="#00AEEF">Bharat</text>
+            </svg>
+          )
+        }
+      </div>
+      <div className="leading-tight hidden sm:block">
+        <div className="font-bold text-sm leading-none text-white">BharatCares Analytics</div>
+        <div className="text-[9px] font-medium tracking-wider uppercase" style={{ color: 'rgba(255,255,255,0.40)' }}>
+          Scholarship Management · by SMEC Trust
         </div>
-      )}
+      </div>
     </div>
   );
 }
