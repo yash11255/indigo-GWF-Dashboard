@@ -1,14 +1,21 @@
 import axios from 'axios';
 import { pushLog } from '../components/ApiLogPanel';
+import { getDateRange } from './dateRange';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
   timeout: 30000,
 });
 
-// ── Request: stamp start time ─────────────────────────────────────────────────
+// ── Request: stamp start time + inject global date range ──────────────────────
+const DATE_EXEMPT = ['/auth/', '/settings/'];
 api.interceptors.request.use(config => {
   config.metadata = { start: Date.now() };
+  const exempt = DATE_EXEMPT.some(p => (config.url || '').includes(p));
+  if (!exempt) {
+    const { from, to } = getDateRange();
+    config.params = { from, to, ...config.params };
+  }
   return config;
 });
 

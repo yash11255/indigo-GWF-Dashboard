@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
+import { getDateRange, setDateRange, onDateRangeChange } from '../../utils/dateRange';
 
 const ADMIN_NAV = [
   { to: '/', label: 'Overview', end: true },
@@ -56,11 +57,22 @@ export default function TopNavBar({ onReload }) {
   const NAV      = isAdmin ? ADMIN_NAV : CLIENT_NAV;
   const location = useLocation();
 
-  const [reloading, setReloading] = useState(false);
-  const [reloadMsg, setReloadMsg] = useState('');
-  const [showUser, setShowUser]   = useState(false);
+  const [reloading, setReloading]   = useState(false);
+  const [reloadMsg, setReloadMsg]   = useState('');
+  const [showUser, setShowUser]     = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [dateRange, setLocalRange]  = useState(getDateRange());
   const menuRef = useRef(null);
+
+  // Sync global date range changes to local state
+  useEffect(() => onDateRangeChange(setLocalRange), []);
+
+  const handleDateChange = (field, value) => {
+    const next = { ...dateRange, [field]: value };
+    setLocalRange(next);
+    setDateRange(next.from, next.to);
+    if (onReload) onReload();
+  };
 
   // Close mobile menu on route change
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
@@ -206,7 +218,27 @@ export default function TopNavBar({ onReload }) {
           ))}
         </div>
         <div className="flex-1" />
-        <div className="flex items-center gap-2 py-2 flex-shrink-0">
+        <div className="flex items-center gap-2 py-1.5 flex-shrink-0">
+          {/* Date range picker */}
+          <div className="flex items-center gap-1.5 px-2 py-1" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid #393939' }}>
+            <svg className="w-3 h-3 flex-shrink-0" style={{ color: '#8D8D8D' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <input
+              type="date"
+              value={dateRange.from}
+              onChange={e => handleDateChange('from', e.target.value)}
+              style={{ background: 'transparent', border: 'none', outline: 'none', color: '#C6C6C6', fontSize: 11, width: 98 }}
+            />
+            <span style={{ color: '#525252', fontSize: 11 }}>–</span>
+            <input
+              type="date"
+              value={dateRange.to}
+              onChange={e => handleDateChange('to', e.target.value)}
+              style={{ background: 'transparent', border: 'none', outline: 'none', color: '#C6C6C6', fontSize: 11, width: 98 }}
+            />
+          </div>
           <div className="w-px h-4" style={{ background: '#393939' }} />
           <LiveBadge />
         </div>

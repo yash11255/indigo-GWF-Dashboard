@@ -67,9 +67,26 @@ router.post('/settings/api-source', async (req, res) => {
   }
 });
 
+// ─── Date range helper ────────────────────────────────────────────────────────
+function byDate(arr, from, to, field = 'submittedDate') {
+  if (!from && !to) return arr;
+  return arr.filter(r => {
+    const d = r[field];
+    if (!d) return false;
+    if (from && d < from) return false;
+    if (to   && d > to)   return false;
+    return true;
+  });
+}
+
 // ─── Stats / overview ─────────────────────────────────────────────────────────
 router.get('/stats', (req, res) => {
-  const { registered, drafts, applied, lastUpdated } = getCache();
+  const { from, to } = req.query;
+  const cache = getCache();
+  const registered = byDate(cache.registered, from, to, 'registrationDate');
+  const drafts     = byDate(cache.drafts,     from, to);
+  const applied    = byDate(cache.applied,    from, to);
+
   const allAppIds = new Set([...drafts.map(d => d.applicationId), ...applied.map(a => a.applicationId)]);
   const passportReady = [...drafts, ...applied].filter(d => d.hasPassport === 'Yes').length;
   const laptopReady   = [...drafts, ...applied].filter(d => d.hasLaptop  === 'Yes').length;
@@ -85,25 +102,27 @@ router.get('/stats', (req, res) => {
     draftToApplied:  drafts.length     ? ((applied.length  / drafts.length)   * 100).toFixed(1) : 0,
     passportReady,
     laptopReady,
-    lastUpdated,
+    lastUpdated: cache.lastUpdated,
   });
 });
 
 router.get('/funnel', (req, res) => {
-  const { registered, drafts, applied } = getCache();
+  const { from, to } = req.query;
+  const cache = getCache();
+  const registered = byDate(cache.registered, from, to, 'registrationDate');
+  const drafts     = byDate(cache.drafts,     from, to);
+  const applied    = byDate(cache.applied,    from, to);
   res.json([
-    { stage: 'Registered',   count: registered.length, color: '#0F62FE' },
-    { stage: 'Draft Started', count: drafts.length,    color: '#0043CE' },
-    { stage: 'Applied',       count: applied.length,   color: '#002D9C' },
+    { stage: 'Registered',    count: registered.length, color: '#0F62FE' },
+    { stage: 'Draft Started', count: drafts.length,     color: '#0043CE' },
+    { stage: 'Applied',       count: applied.length,    color: '#002D9C' },
   ]);
 });
 
 // ─── Draft-specific routes ────────────────────────────────────────────────────
 router.get('/drafts', (req, res) => {
-  const { drafts } = getCache();
-  const { page = 1, limit = 50, state, gender, category, employment, search } = req.query;
-
-  let filtered = drafts;
+  const { page = 1, limit = 50, state, gender, category, employment, search, from, to } = req.query;
+  let filtered = byDate(getCache().drafts, from, to);
   if (state && state !== 'all')      filtered = filtered.filter(d => d.currentState === state);
   if (gender && gender !== 'all')    filtered = filtered.filter(d => d.gender === gender);
   if (category && category !== 'all') filtered = filtered.filter(d => d.category === category);
@@ -219,10 +238,8 @@ router.get('/draft-analysis', (req, res) => {
 
 // ─── Applied routes ───────────────────────────────────────────────────────────
 router.get('/applied', (req, res) => {
-  const { applied } = getCache();
-  const { page = 1, limit = 50, state, gender, search } = req.query;
-
-  let filtered = applied;
+  const { page = 1, limit = 50, state, gender, search, from, to } = req.query;
+  let filtered = byDate(getCache().applied, from, to);
   if (state && state !== 'all')   filtered = filtered.filter(d => d.currentState === state);
   if (gender && gender !== 'all') filtered = filtered.filter(d => d.gender === gender);
   if (search) {
@@ -243,10 +260,8 @@ router.get('/applied', (req, res) => {
 
 // ─── Registered routes ────────────────────────────────────────────────────────
 router.get('/registered', (req, res) => {
-  const { registered } = getCache();
-  const { page = 1, limit = 50, search } = req.query;
-
-  let filtered = registered;
+  const { page = 1, limit = 50, search, from, to } = req.query;
+  let filtered = byDate(getCache().registered, from, to, 'registrationDate');
   if (search) {
     const q = search.toLowerCase();
     filtered = filtered.filter(r =>
@@ -347,7 +362,8 @@ function crossTab(arr, valFn, typeFn) {
 const appType = r => r.applicationType === 'Complete' ? 'Complete' : 'Draft';
 
 router.get('/date-wise', (req, res) => {
-  const combined = getCombined();
+  const { from, to } = req.query;
+  const combined = byDate(getCombined(), from, to);
   const byDate = {};
   combined.forEach(a => {
     const date = normalizeDate(a.submittedDate);
@@ -367,7 +383,8 @@ function toTitleCase(s) {
 }
 
 router.get('/region-wise', (req, res) => {
-  const combined = getCombined();
+  const { from, to } = req.query;
+  const combined = byDate(getCombined(), from, to);
   const byRegion = {};
   combined.forEach(a => {
     const normalized = toTitleCase(a.currentState);
@@ -386,7 +403,8 @@ router.get('/region-wise', (req, res) => {
 });
 
 router.get('/state-breakdown', (req, res) => {
-  const combined = getCombined();
+  const { from, to } = req.query;
+  const combined = byDate(getCombined(), from, to);
   const byState = {};
   combined.forEach(a => {
     const state = (a.currentState || '').trim();
@@ -400,8 +418,8 @@ router.get('/state-breakdown', (req, res) => {
 });
 
 router.get('/district-wise', (req, res) => {
-  const combined = getCombined();
-  const stateFilter = req.query.state || '';
+  const { from, to, state: stateFilter = '' } = req.query;
+  const combined = byDate(getCombined(), from, to);
   const byDist = {};
   combined.forEach(a => {
     if (stateFilter && a.currentState !== stateFilter) return;
@@ -417,7 +435,8 @@ router.get('/district-wise', (req, res) => {
 });
 
 router.get('/dgca-medical', (req, res) => {
-  const combined = getCombined();
+  const { from, to } = req.query;
+  const combined = byDate(getCombined(), from, to);
   const complete  = combined.filter(r => r.applicationType === 'Complete');
   const statusMap = {};
   complete.forEach(r => { const v = r.dgcaMedical||'No Data'; statusMap[v]=(statusMap[v]||0)+1; });
@@ -434,7 +453,8 @@ router.get('/dgca-medical', (req, res) => {
 });
 
 router.get('/dgca-computer', (req, res) => {
-  const combined = getCombined();
+  const { from, to } = req.query;
+  const combined = byDate(getCombined(), from, to);
   const clean = combined.filter(r => ['Yes','No','No Data'].includes(r.dgcaComputer));
   const summary = {};
   clean.forEach(r => { summary[r.dgcaComputer]=(summary[r.dgcaComputer]||0)+1; });
@@ -442,13 +462,15 @@ router.get('/dgca-computer', (req, res) => {
 });
 
 router.get('/employment-status', (req, res) => {
-  const combined = getCombined();
+  const { from, to } = req.query;
+  const combined = byDate(getCombined(), from, to);
   const clean = combined.filter(r => ['Student','Employed','Unemployed'].includes(r.employmentStatus));
   res.json(crossTab(clean, r=>r.employmentStatus, appType));
 });
 
 router.get('/education-status', (req, res) => {
-  const combined = getCombined();
+  const { from, to } = req.query;
+  const combined = byDate(getCombined(), from, to);
   const clean = combined.filter(r => r.educationStatus && (r.educationStatus.includes('Complet')||r.educationStatus.includes('Pursuing')));
   const normalized = clean.map(r => ({
     ...r,
@@ -458,18 +480,21 @@ router.get('/education-status', (req, res) => {
 });
 
 router.get('/gender-breakdown', (req, res) => {
-  const combined = getCombined();
+  const { from, to } = req.query;
+  const combined = byDate(getCombined(), from, to);
   const clean = combined.filter(r => ['Male','Female','Other'].includes(r.gender));
   res.json(crossTab(clean, r=>r.gender, appType));
 });
 
 router.get('/category-breakdown', (req, res) => {
-  const combined = getCombined();
+  const { from, to } = req.query;
+  const combined = byDate(getCombined(), from, to);
   res.json(crossTab(combined, r=>r.category||'General', appType));
 });
 
 router.get('/passport-status', (req, res) => {
-  const combined = getCombined();
+  const { from, to } = req.query;
+  const combined = byDate(getCombined(), from, to);
   const clean = combined.filter(r => r.hasPassport);
   res.json(crossTab(clean, r=>(r.hasPassport==='Yes'?'Has Passport':'No Passport'), appType));
 });
