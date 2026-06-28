@@ -1,0 +1,54 @@
+{
+  "name": "indigo-gwf-dashboard",
+  "version": "1.0.0",
+  "description": "IndiGo Giving Wings to Fly — Scholarship Dashboard (Offline Desktop)",
+  "main": "main.js",
+  "scripts": {
+    "start":    "electron .",
+    "prebuild": "cd ../client && npm install && npm run build && cd ../server && node scripts/prebuild.js",
+    "build":    "electron-builder --win --x64",
+    "build:dir": "electron-builder --win --x64 --dir"
+  },
+  "build": {
+    "appId":       "com.bharatcares.indigo-gwf",
+    "productName": "IndiGo GWF Dashboard",
+    "copyright":   "Copyright © 2026 BharatCares",
+    "asar": false,
+    "directories": {
+      "output":          "dist-exe",
+      "buildResources":  "assets"
+    },
+    "files": [
+      "main.js",
+      "package.json",
+      "node_modules/**",
+      { "from": "../server/src",     "to": "server/src"  },
+      { "from": "../server/data",    "to": "server/data" },
+      { "from": "../client/dist",    "to": "client"      }
+    ],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }]
+    },
+    "nsis": {
+      "oneClick":                        false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut":           true,
+      "createStartMenuShortcut":         true,
+      "shortcutName":                    "IndiGo GWF Dashboard"
+    }
+  },
+  "dependencies": {
+    "bcryptjs":    "^2.4.3",
+    "cors":        "^2.8.5",
+    "dotenv":      "^16.4.5",
+    "express":     "^4.19.2",
+    "jsonwebtoken":"^9.0.2",
+    "multer":      "^2.2.0",
+    "papaparse":   "^5.4.1",
+    "xlsx":        "^0.18.5"
+  },
+  "devDependencies": {
+    "electron":         "^33.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}
