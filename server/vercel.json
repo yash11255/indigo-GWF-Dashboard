@@ -9,10 +9,6 @@
     }
   },
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/index" }
-  ],
-  "env": {
-    "NODE_ENV": "production",
-    "VERCEL": "1"
-  }
+    { "source": "/(.*)", "destination": "/api/index" }
+  ]
 }

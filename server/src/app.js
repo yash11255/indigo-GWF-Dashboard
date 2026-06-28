@@ -29,4 +29,9 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Root — confirms the API is live (visited in browser or health checks)
+app.get('/', (req, res) => {
+  res.json({ service: 'IndiGo GWF Dashboard API', status: 'ok', version: '1.0.0' });
+});
+
 module.exports = app;
