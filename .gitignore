@@ -6,7 +6,6 @@ npm-debug.log*
 
 # Build outputs
 client/dist/
-server/data/cache.json
 
 # Env
 .env

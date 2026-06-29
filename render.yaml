@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: bharatcares-api
+    runtime: node
+    rootDir: server
+    buildCommand: npm install && node scripts/prebuild.js
+    startCommand: node index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
