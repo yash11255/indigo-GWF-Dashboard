@@ -159,6 +159,47 @@ router.get('/stats', (req, res) => {
   });
 });
 
+// ─── Programme totals (no date filter — for summary header) ──────────────────
+// Previous export baseline (27062026) — used to show delta on the dashboard
+const PREV_BASELINE = {
+  file:        '27062026',
+  registered:  1820,
+  drafts:      1796,
+  applied:     728,
+  totalUnique: 2524,
+  uniqueStates: 34,
+};
+
+router.get('/programme-totals', (req, res) => {
+  const cache    = getCache();
+  const combined = getCombined();  // all records, no date filter
+  const drafts   = combined.filter(r => r.applicationType !== 'Complete');
+  const applied  = combined.filter(r => r.applicationType === 'Complete');
+  const uniqueStates = new Set(combined.map(r => r.currentState).filter(s => s && s !== 'Not Specified')).size;
+
+  const current = {
+    file:         '29062026',
+    registered:   cache.registered.length,
+    drafts:        drafts.length,
+    applied:       applied.length,
+    totalUnique:   combined.length,
+    uniqueStates,
+    lastUpdated:   cache.lastUpdated,
+  };
+
+  res.json({
+    current,
+    previous: PREV_BASELINE,
+    delta: {
+      registered:   current.registered  - PREV_BASELINE.registered,
+      drafts:        current.drafts       - PREV_BASELINE.drafts,
+      applied:       current.applied      - PREV_BASELINE.applied,
+      totalUnique:   current.totalUnique  - PREV_BASELINE.totalUnique,
+      uniqueStates:  current.uniqueStates - PREV_BASELINE.uniqueStates,
+    },
+  });
+});
+
 router.get('/funnel', (req, res) => {
   const { from, to } = req.query;
   const cache = getCache();

@@ -7,7 +7,7 @@ const api = axios.create({
 });
 
 // Table routes show ALL records regardless of the global date picker
-const DATE_EXEMPT = ['/auth/', '/settings/', '/data/drafts', '/data/applied', '/data/registered', '/data/export'];
+const DATE_EXEMPT = ['/auth/', '/settings/', '/data/drafts', '/data/applied', '/data/registered', '/data/export', '/data/programme-totals'];
 api.interceptors.request.use(config => {
   const exempt = DATE_EXEMPT.some(p => (config.url || '').includes(p));
   if (!exempt) {

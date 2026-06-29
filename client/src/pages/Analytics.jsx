@@ -799,6 +799,81 @@ function IndiaMap({ mode }) {
   );
 }
 
+// ─── Programme Summary Bar ────────────────────────────────────────────────────
+function DeltaBadge({ delta }) {
+  if (delta === 0) return <span style={{ fontSize:10, color:'#6F6F6F', fontWeight:600 }}>—</span>;
+  const up = delta > 0;
+  return (
+    <span style={{
+      fontSize:10, fontWeight:700, display:'inline-flex', alignItems:'center', gap:2,
+      color: up ? IBM.green50 : IBM.red50,
+    }}>
+      {up ? '▲' : '▼'} {Math.abs(delta).toLocaleString('en-IN')}
+    </span>
+  );
+}
+
+function ProgrammeSummary() {
+  const { data, loading } = useData('/data/programme-totals');
+  if (loading) return (
+    <div style={{ height:70, background:'#fff', borderBottom:`1px solid ${IBM.gray20}`, display:'flex', alignItems:'center', padding:'0 20px' }}>
+      <div style={{ height:36, width:'100%', background:IBM.gray10, animation:'pulse 1.5s infinite' }}/>
+    </div>
+  );
+  if (!data) return null;
+
+  const { current, previous, delta } = data;
+
+  const metrics = [
+    { label:'Registered',    cur: current.registered,  prev: previous.registered,  d: delta.registered,  color: IBM.blue60 },
+    { label:'Draft (unique)', cur: current.drafts,       prev: previous.drafts,       d: delta.drafts,       color: IBM.blue50 },
+    { label:'Applied',       cur: current.applied,     prev: previous.applied,     d: delta.applied,     color: IBM.green50 },
+    { label:'Total Unique',  cur: current.totalUnique, prev: previous.totalUnique, d: delta.totalUnique, color: IBM.teal50 },
+    { label:'States',        cur: current.uniqueStates,prev: previous.uniqueStates,d: delta.uniqueStates,color: IBM.purple50 },
+  ];
+
+  return (
+    <div style={{
+      background:'#fff', borderBottom:`1px solid ${IBM.gray20}`,
+      padding:'10px 20px', flexShrink:0,
+      display:'flex', alignItems:'center', gap:0, flexWrap:'wrap',
+    }}>
+      {/* File badge */}
+      <div style={{ marginRight:20, flexShrink:0 }}>
+        <p style={{ fontSize:9, fontWeight:800, textTransform:'uppercase', letterSpacing:1.5, color:IBM.gray50, marginBottom:2 }}>Data File</p>
+        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+          <div style={{ width:6, height:6, borderRadius:'50%', background:IBM.green50, flexShrink:0 }}/>
+          <span style={{ fontSize:11, fontWeight:700, color:IBM.gray100 }}>{current.file}</span>
+          <span style={{ fontSize:9, color:IBM.gray50 }}>vs {previous.file}</span>
+        </div>
+      </div>
+
+      <div style={{ width:1, height:40, background:IBM.gray20, marginRight:20, flexShrink:0 }}/>
+
+      {/* Metric columns */}
+      <div style={{ display:'flex', gap:0, flex:1, flexWrap:'wrap' }}>
+        {metrics.map((m, i) => (
+          <div key={m.label} style={{
+            flex:1, minWidth:110, padding:'4px 16px',
+            borderRight: i < metrics.length-1 ? `1px solid ${IBM.gray20}` : 'none',
+          }}>
+            <p style={{ fontSize:9, fontWeight:700, textTransform:'uppercase', letterSpacing:1.2, color:IBM.gray50, marginBottom:3 }}>{m.label}</p>
+            <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
+              <span style={{ fontSize:20, fontWeight:800, color:m.color, lineHeight:1 }}>
+                {m.cur.toLocaleString('en-IN')}
+              </span>
+              <DeltaBadge delta={m.d}/>
+            </div>
+            <p style={{ fontSize:9, color:IBM.gray50, marginTop:2 }}>
+              prev {m.prev.toLocaleString('en-IN')}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 const SECTIONS = [
   { id:'date',       label:'Date-wise',         icon:'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
@@ -842,7 +917,12 @@ export default function Analytics() {
   const curSection = SECTIONS.find(s => s.id === active);
 
   return (
-    <div className="flex-1 flex min-h-0" style={{ background: IBM.gray10 }}>
+    <div className="flex-1 flex flex-col min-h-0" style={{ background: IBM.gray10 }}>
+
+      {/* ── Programme summary strip ── */}
+      <ProgrammeSummary />
+
+      <div className="flex flex-1 min-h-0">
 
       {/* ── Left section nav ── */}
       <div className="flex-shrink-0 w-52" style={{ background:'#fff', borderRight:`1px solid ${IBM.gray20}` }}>
@@ -925,6 +1005,8 @@ export default function Analytics() {
           </div>
         </div>
       </div>
+
+      </div>{/* end flex row */}
     </div>
   );
 }
