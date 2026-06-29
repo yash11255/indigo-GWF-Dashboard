@@ -1,5 +1,5 @@
 // Global date range store — all API calls inject these as ?from=&to= params
-const _range = { from: '2026-06-06', to: '2026-06-27' };
+const _range = { from: '2026-06-06', to: '2026-06-29' };
 const _listeners = new Set();
 
 export function getDateRange() {
