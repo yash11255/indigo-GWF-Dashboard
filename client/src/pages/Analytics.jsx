@@ -800,73 +800,53 @@ function IndiaMap({ mode }) {
 }
 
 // ─── Programme Summary Bar ────────────────────────────────────────────────────
-function DeltaBadge({ delta }) {
-  if (delta === 0) return <span style={{ fontSize:10, color:'#6F6F6F', fontWeight:600 }}>—</span>;
-  const up = delta > 0;
-  return (
-    <span style={{
-      fontSize:10, fontWeight:700, display:'inline-flex', alignItems:'center', gap:2,
-      color: up ? IBM.green50 : IBM.red50,
-    }}>
-      {up ? '▲' : '▼'} {Math.abs(delta).toLocaleString('en-IN')}
-    </span>
-  );
-}
-
 function ProgrammeSummary() {
   const { data, loading } = useData('/data/programme-totals');
   if (loading) return (
-    <div style={{ height:70, background:'#fff', borderBottom:`1px solid ${IBM.gray20}`, display:'flex', alignItems:'center', padding:'0 20px' }}>
-      <div style={{ height:36, width:'100%', background:IBM.gray10, animation:'pulse 1.5s infinite' }}/>
+    <div style={{ height:62, background:'#fff', borderBottom:`1px solid ${IBM.gray20}`, display:'flex', alignItems:'center', padding:'0 20px' }}>
+      <div style={{ height:32, width:'100%', background:IBM.gray10 }}/>
     </div>
   );
   if (!data) return null;
 
-  const { current, previous, delta } = data;
+  const { current } = data;
 
   const metrics = [
-    { label:'Registered',    cur: current.registered,  prev: previous.registered,  d: delta.registered,  color: IBM.blue60 },
-    { label:'Draft (unique)', cur: current.drafts,       prev: previous.drafts,       d: delta.drafts,       color: IBM.blue50 },
-    { label:'Applied',       cur: current.applied,     prev: previous.applied,     d: delta.applied,     color: IBM.green50 },
-    { label:'Total Unique',  cur: current.totalUnique, prev: previous.totalUnique, d: delta.totalUnique, color: IBM.teal50 },
-    { label:'States',        cur: current.uniqueStates,prev: previous.uniqueStates,d: delta.uniqueStates,color: IBM.purple50 },
+    { label:'Registered',   value: current.registered,  color: IBM.blue60   },
+    { label:'Draft',        value: current.drafts,       color: IBM.blue50   },
+    { label:'Applied',      value: current.applied,      color: IBM.green50  },
+    { label:'Total Unique', value: current.totalUnique,  color: IBM.teal50   },
+    { label:'States',       value: current.uniqueStates, color: IBM.purple50 },
   ];
 
   return (
     <div style={{
       background:'#fff', borderBottom:`1px solid ${IBM.gray20}`,
-      padding:'10px 20px', flexShrink:0,
-      display:'flex', alignItems:'center', gap:0, flexWrap:'wrap',
+      padding:'0 20px', height:62, flexShrink:0,
+      display:'flex', alignItems:'center', gap:0,
     }}>
       {/* File badge */}
       <div style={{ marginRight:20, flexShrink:0 }}>
-        <p style={{ fontSize:9, fontWeight:800, textTransform:'uppercase', letterSpacing:1.5, color:IBM.gray50, marginBottom:2 }}>Data File</p>
+        <p style={{ fontSize:9, fontWeight:800, textTransform:'uppercase', letterSpacing:1.5, color:IBM.gray50, marginBottom:3 }}>Data File</p>
         <div style={{ display:'flex', alignItems:'center', gap:6 }}>
           <div style={{ width:6, height:6, borderRadius:'50%', background:IBM.green50, flexShrink:0 }}/>
           <span style={{ fontSize:11, fontWeight:700, color:IBM.gray100 }}>{current.file}</span>
-          <span style={{ fontSize:9, color:IBM.gray50 }}>vs {previous.file}</span>
         </div>
       </div>
 
-      <div style={{ width:1, height:40, background:IBM.gray20, marginRight:20, flexShrink:0 }}/>
+      <div style={{ width:1, height:36, background:IBM.gray20, marginRight:20, flexShrink:0 }}/>
 
-      {/* Metric columns */}
-      <div style={{ display:'flex', gap:0, flex:1, flexWrap:'wrap' }}>
+      {/* Metrics */}
+      <div style={{ display:'flex', flex:1, flexWrap:'wrap' }}>
         {metrics.map((m, i) => (
           <div key={m.label} style={{
-            flex:1, minWidth:110, padding:'4px 16px',
+            flex:1, minWidth:100, padding:'0 16px',
             borderRight: i < metrics.length-1 ? `1px solid ${IBM.gray20}` : 'none',
           }}>
             <p style={{ fontSize:9, fontWeight:700, textTransform:'uppercase', letterSpacing:1.2, color:IBM.gray50, marginBottom:3 }}>{m.label}</p>
-            <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
-              <span style={{ fontSize:20, fontWeight:800, color:m.color, lineHeight:1 }}>
-                {m.cur.toLocaleString('en-IN')}
-              </span>
-              <DeltaBadge delta={m.d}/>
-            </div>
-            <p style={{ fontSize:9, color:IBM.gray50, marginTop:2 }}>
-              prev {m.prev.toLocaleString('en-IN')}
-            </p>
+            <span style={{ fontSize:20, fontWeight:800, color:m.color, lineHeight:1 }}>
+              {m.value.toLocaleString('en-IN')}
+            </span>
           </div>
         ))}
       </div>
