@@ -9,7 +9,7 @@ const path = require('path');
 
 // __dirname = server/scripts/ → ROOT = server/
 const ROOT      = path.join(__dirname, '..');
-const DATA_FILE = path.join(ROOT, '27062026_IGWF_Applicants_List.xlsx');
+const DATA_FILE = path.join(ROOT, '29062026_IGWF_Applicants_List.xlsx');
 const OUT_DIR   = path.join(ROOT, 'data');
 const OUT_FILE  = path.join(OUT_DIR, 'cache.json');
 
@@ -170,16 +170,27 @@ console.log(`   Sheets: ${wb.SheetNames.join(', ')} (read in ${Date.now()-t0}ms)
 
 const cache = { registered: [], drafts: [], applied: [], calling: [], lastUpdated: new Date().toISOString() };
 
-const draftSheet = wb.Sheets['Draft Applicants'];
-if (draftSheet) {
-  cache.drafts = parseSheet(draftSheet).map(parseRow);
-  console.log(`  ✅ Draft Applicants: ${cache.drafts.length} rows`);
-}
-
+// Load Applied first so we can deduplicate drafts against it
 const appliedSheet = wb.Sheets['Applied applicants'];
 if (appliedSheet) {
   cache.applied = parseSheet(appliedSheet).map(parseRow);
   console.log(`  ✅ Applied applicants: ${cache.applied.length} rows`);
+}
+
+const draftSheet = wb.Sheets['Draft Applicants'];
+if (draftSheet) {
+  const appliedKeys = new Set([
+    ...cache.applied.map(r => r.email).filter(Boolean),
+    ...cache.applied.map(r => r.applicationId).filter(Boolean),
+  ]);
+  const rows = parseSheet(draftSheet).map(parseRow);
+  const before = rows.length;
+  cache.drafts = rows.filter(r =>
+    !appliedKeys.has(r.email) && !appliedKeys.has(r.applicationId)
+  );
+  const removed = before - cache.drafts.length;
+  if (removed > 0) console.log(`  ⚠️  Removed ${removed} draft rows already in Applied sheet (export artifact)`);
+  console.log(`  ✅ Draft Applicants: ${cache.drafts.length} rows`);
 }
 
 const regSheet = wb.Sheets['Registered Applicants'];

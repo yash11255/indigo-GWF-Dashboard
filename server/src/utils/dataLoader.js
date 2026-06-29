@@ -269,22 +269,31 @@ function loadData() {
   const wb   = XLSX.readFile(DATA_FILE, { cellDates: false });
   console.log(`   Sheets: ${wb.SheetNames.join(', ')} (read in ${Date.now()-t0}ms)`);
 
-  // Draft Applicants
-  const draftSheet = wb.Sheets['Draft Applicants'];
-  if (draftSheet) {
-    const t1 = Date.now();
-    const rows = parseSheet(draftSheet);
-    cache.drafts = rows.map(parseRow);
-    console.log(`  ✅ Draft Applicants: ${cache.drafts.length} rows (${Date.now()-t1}ms)`);
-  }
-
-  // Applied Applicants
+  // Applied Applicants (load first so we can deduplicate drafts against it)
   const appliedSheet = wb.Sheets['Applied applicants'];
   if (appliedSheet) {
     const t1 = Date.now();
     const rows = parseSheet(appliedSheet);
     cache.applied = rows.map(parseRow);
     console.log(`  ✅ Applied applicants: ${cache.applied.length} rows (${Date.now()-t1}ms)`);
+  }
+
+  // Draft Applicants — strip anyone already in Applied (export artifact)
+  const draftSheet = wb.Sheets['Draft Applicants'];
+  if (draftSheet) {
+    const t1 = Date.now();
+    const appliedKeys = new Set([
+      ...cache.applied.map(r => r.email).filter(Boolean),
+      ...cache.applied.map(r => r.applicationId).filter(Boolean),
+    ]);
+    const rows = parseSheet(draftSheet).map(parseRow);
+    const before = rows.length;
+    cache.drafts = rows.filter(r =>
+      !appliedKeys.has(r.email) && !appliedKeys.has(r.applicationId)
+    );
+    const removed = before - cache.drafts.length;
+    if (removed > 0) console.log(`  ⚠️  Removed ${removed} draft rows already present in Applied sheet`);
+    console.log(`  ✅ Draft Applicants: ${cache.drafts.length} rows (${Date.now()-t1}ms)`);
   }
 
   // Registered

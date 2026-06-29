@@ -162,12 +162,12 @@ router.get('/stats', (req, res) => {
 // ─── Programme totals (no date filter — for summary header) ──────────────────
 // Previous export baseline (27062026) — used to show delta on the dashboard
 const PREV_BASELINE = {
-  file:        '27062026',
-  registered:  1820,
-  drafts:      1796,
-  applied:     728,
-  totalUnique: 2524,
-  uniqueStates: 34,
+  file:         '27062026',
+  registered:   1820,
+  drafts:       1796,   // old file had 0 Applied-Draft overlaps
+  applied:       728,
+  totalUnique:  2524,
+  uniqueStates:  34,
 };
 
 router.get('/programme-totals', (req, res) => {
