@@ -1,9 +1,8 @@
 const express = require('express');
 const router  = express.Router();
-const path    = require('path');
 const multer  = require('multer');
 const auth    = require('../middleware/auth');
-const { getCache, loadData, normalizeDate, setMockMode, setApiMode, getMode, setDataFile } = require('../utils/dataLoader');
+const { getCache, loadData, loadDataFromBuffer, normalizeDate, setMockMode, setApiMode, getMode, setDataFile } = require('../utils/dataLoader');
 
 router.use(auth);
 
@@ -34,21 +33,14 @@ let _mockOverrides = {
   },
 };
 
-// ─── File upload storage (/tmp on Vercel, uploads/ locally) ──────────────────
-// __dirname = server/src/routes/ → ../../uploads = server/uploads/
-const uploadDir = process.env.VERCEL ? '/tmp/uploads' : path.join(__dirname, '../../uploads');
-require('fs').mkdirSync(uploadDir, { recursive: true });
-const storage = multer.diskStorage({
-  destination: uploadDir,
-  filename: (req, file, cb) => cb(null, `data-${Date.now()}.xlsx`),
-});
+// ─── File upload — memory storage only (no disk writes, avoids Render storage limits) ──
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   fileFilter: (req, file, cb) => {
     if (file.mimetype.includes('spreadsheet') || file.originalname.endsWith('.xlsx') || file.originalname.endsWith('.xls')) {
       cb(null, true);
     } else {
-      cb(new Error('Only Excel files allowed'), false);
+      cb(new Error('Only Excel files (.xlsx / .xls) are allowed'), false);
     }
   },
   limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
@@ -68,11 +60,95 @@ router.post('/settings/mode', (req, res) => {
 
 router.post('/settings/upload', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-  setDataFile(req.file.path);
-  setMockMode(false);
-  setApiMode(false, '');
-  loadData();
-  res.json({ ok: true, filename: req.file.originalname, path: req.file.path });
+  try {
+    setMockMode(false);
+    setApiMode(false, '');
+    loadDataFromBuffer(req.file.buffer);
+    const c = getCache();
+    const total = new Set([...c.drafts.map(d=>d.applicationId),...c.applied.map(a=>a.applicationId)]).size;
+    res.json({
+      ok: true,
+      filename: req.file.originalname,
+      size: req.file.size,
+      registered: c.registered.length,
+      drafts: c.drafts.length,
+      applied: c.applied.length,
+      unique: total,
+    });
+  } catch (err) {
+    console.error('Upload parse error:', err);
+    res.status(500).json({ error: `Failed to parse file: ${err.message}` });
+  }
+});
+
+// ─── Template download ────────────────────────────────────────────────────────
+router.get('/template', (req, res) => {
+  const XLSX = require('xlsx');
+  const headers = [
+    'Stage','ApplicationId','ScholarshipName','AppliedBy','AppliedDate','Status',
+    'FirstName','LastName','Email','PhoneNumber','DateOfBirth','Gender',
+    'WhatsappNumber','Region','Current_State','Current_District',
+    'Employment_status','Do_you_have_a_valid_Indian_passport',
+    'What_is_your_education_status',
+    'Familys_annual_household_incomeNote_Income_Certificate_from_competent_authority_OR_Form_16__ITR__BPL_card_OR_Ration_card',
+    'Do_you_have_DGCA_computer_numberNote_A_DGCA_computer_number_is_a_mandatory_requirement_and_a_unique_student_identifier_issued_by_the_Directorate_General_of_Civil_Aviation_To_know_more_about_DGCA_computer_number_visit_httpsparikshadgcagovin_',
+    'Have_you_undergone_DGCA_medical_assessment_class_2',
+    'How_did_you_hear_about_the_Giving_Wings_to_Fly_programme',
+    'Have_you_cleared_any_DGCA_exam',
+  ];
+
+  const incomeKey = headers[19];
+  const dgcaCompKey = headers[20];
+
+  const sampleRows = [
+    {
+      Stage: 'Draft', ApplicationId: 'SB-2026-0001', ScholarshipName: 'IGWF',
+      AppliedBy: 'SBU10001', AppliedDate: '2026-07-01', Status: 'Draft',
+      FirstName: 'Priya', LastName: 'Sharma', Email: 'priya.sharma@example.com',
+      PhoneNumber: '9876543210', DateOfBirth: '2001-05-15', Gender: 'Female',
+      WhatsappNumber: '9876543210', Region: 'Northern India',
+      Current_State: 'Delhi', Current_District: 'New Delhi',
+      Employment_status: 'Student', Do_you_have_a_valid_Indian_passport: 'Yes',
+      What_is_your_education_status: '12th Completed',
+      [incomeKey]: '<2 Lakhs Per Annum',
+      [dgcaCompKey]: 'No',
+      Have_you_undergone_DGCA_medical_assessment_class_2: 'No',
+      How_did_you_hear_about_the_Giving_Wings_to_Fly_programme: 'Social Media',
+      Have_you_cleared_any_DGCA_exam: 'No',
+    },
+    {
+      Stage: 'Completed', ApplicationId: 'SB-2026-0002', ScholarshipName: 'IGWF',
+      AppliedBy: 'SBU10002', AppliedDate: '2026-07-01', Status: 'Submitted',
+      FirstName: 'Arjun', LastName: 'Patel', Email: 'arjun.patel@example.com',
+      PhoneNumber: '9123456780', DateOfBirth: '2000-11-20', Gender: 'Male',
+      WhatsappNumber: '9123456780', Region: 'Western India',
+      Current_State: 'Gujarat', Current_District: 'Ahmedabad',
+      Employment_status: 'Student', Do_you_have_a_valid_Indian_passport: 'No',
+      What_is_your_education_status: 'Pursuing Graduation',
+      [incomeKey]: '2-5 Lakhs Per Annum',
+      [dgcaCompKey]: 'Yes',
+      Have_you_undergone_DGCA_medical_assessment_class_2: 'Yes',
+      How_did_you_hear_about_the_Giving_Wings_to_Fly_programme: 'College Notice Board',
+      Have_you_cleared_any_DGCA_exam: 'Yes',
+    },
+  ];
+
+  const ws = XLSX.utils.json_to_sheet(sampleRows, { header: headers });
+  // Style the header row bold
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let c = range.s.c; c <= range.e.c; c++) {
+    const addr = XLSX.utils.encode_cell({ r: 0, c });
+    if (ws[addr]) ws[addr].s = { font: { bold: true }, fill: { fgColor: { rgb: 'D6E4F7' } } };
+  }
+  // Set column widths
+  ws['!cols'] = headers.map(() => ({ wch: 22 }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'IGWF_Applicants_List');
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellStyles: true });
+  res.setHeader('Content-Disposition', 'attachment; filename="IGWF_Upload_Template.xlsx"');
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.send(buf);
 });
 
 router.get('/settings/mock-overrides', (req, res) => {

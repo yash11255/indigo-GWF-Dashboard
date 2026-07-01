@@ -244,53 +244,22 @@ function parseRow(r) {
   };
 }
 
-function loadData() {
-  // Fast path: load from pre-built JSON (Vercel deployment or after prebuild)
-  if (fs.existsSync(CACHE_JSON)) {
-    const t0 = Date.now();
-    try {
-      const data = JSON.parse(fs.readFileSync(CACHE_JSON, 'utf8'));
-      cache.registered  = data.registered  || [];
-      cache.drafts      = data.drafts      || [];
-      cache.applied     = data.applied     || [];
-      cache.calling     = data.calling     || [];
-      cache.lastUpdated = data.lastUpdated || new Date().toISOString();
-      const total = new Set([...cache.drafts.map(d=>d.applicationId),...cache.applied.map(a=>a.applicationId)]).size;
-      console.log(`⚡ Loaded from cache.json in ${Date.now()-t0}ms — ${cache.registered.length} registered | ${cache.drafts.length} drafts | ${cache.applied.length} applied | ${total} unique`);
-      return;
-    } catch (e) {
-      console.warn('⚠️  cache.json parse error, falling back to Excel:', e.message);
-    }
-  }
-
-  // Slow path: parse Excel directly (local dev without prebuild)
-  console.log('\n📂 Loading data from', path.basename(DATA_FILE), '...');
-  if (!fs.existsSync(DATA_FILE)) {
-    console.error('❌ Data file not found:', DATA_FILE);
-    return;
-  }
-
+// ─── Shared workbook parser (used by loadData + loadDataFromBuffer) ────────────
+function parseWorkbook(wb) {
   const XLSX = require('xlsx');
-  const t0   = Date.now();
-  const wb   = XLSX.readFile(DATA_FILE, { cellDates: false });
-  console.log(`   Sheets: ${wb.SheetNames.join(', ')} (read in ${Date.now()-t0}ms)`);
-
   const isNewFormat = !!wb.Sheets['IGWF_Applicants_List'];
 
   if (isNewFormat) {
-    // ── New format: single sheet, Stage column ──────────────────────────────
     const t1 = Date.now();
     const allRows = parseSheet(wb.Sheets['IGWF_Applicants_List']).map(parseRow);
     cache.applied = allRows.filter(r => r.applicationType === 'Complete');
     cache.drafts  = allRows.filter(r => r.applicationType !== 'Complete');
     console.log(`  ✅ IGWF_Applicants_List: ${cache.applied.length} applied + ${cache.drafts.length} drafts (${Date.now()-t1}ms)`);
 
-    // Registration list — uses AppliedBy as ID (ApplicationId is empty in these rows)
     const regSheet2 = wb.Sheets['IGWF_Registration_List'];
     if (regSheet2) {
-      const XLSX2 = require('xlsx');
       const t2 = Date.now();
-      const raw = XLSX2.utils.sheet_to_json(regSheet2, { defval: '' });
+      const raw = XLSX.utils.sheet_to_json(regSheet2, { defval: '' });
       cache.registered = raw.filter(r => r['AppliedBy'] || r['Email']).map(r => ({
         id:               String(r['AppliedBy'] || r['ApplicationId'] || ''),
         firstName:        (r['FirstName'] || '').trim(),
@@ -303,9 +272,6 @@ function loadData() {
       console.log(`  ✅ IGWF_Registration_List: ${cache.registered.length} rows (${Date.now()-t2}ms)`);
     }
   } else {
-    // ── Old format: separate Applied/Draft/Registered sheets ────────────────
-
-    // Applied first — needed for dedup
     const appliedSheet = wb.Sheets['Applied applicants'];
     if (appliedSheet) {
       const t1 = Date.now();
@@ -313,7 +279,6 @@ function loadData() {
       console.log(`  ✅ Applied applicants: ${cache.applied.length} rows (${Date.now()-t1}ms)`);
     }
 
-    // Draft — strip anyone already in Applied (export artifact)
     const draftSheet = wb.Sheets['Draft Applicants'];
     if (draftSheet) {
       const t1 = Date.now();
@@ -327,11 +292,10 @@ function loadData() {
         !appliedKeys.has(r.email) && !appliedKeys.has(r.applicationId)
       );
       const removed = before - cache.drafts.length;
-      if (removed > 0) console.log(`  ⚠️  Removed ${removed} draft rows already present in Applied sheet`);
+      if (removed > 0) console.log(`  ⚠️  Removed ${removed} draft rows already in Applied`);
       console.log(`  ✅ Draft Applicants: ${cache.drafts.length} rows (${Date.now()-t1}ms)`);
     }
 
-    // Registered
     const regSheet = wb.Sheets['Registered Applicants'];
     if (regSheet) {
       const raw = XLSX.utils.sheet_to_json(regSheet, { defval: '' });
@@ -350,7 +314,6 @@ function loadData() {
     }
   }
 
-  // Calling Tracker — optional, same structure in both formats
   const callingSheet = wb.Sheets['Draft Applicants calling '] || wb.Sheets['Draft Applicants calling'];
   if (callingSheet) {
     const raw = XLSX.utils.sheet_to_json(callingSheet, { defval: '' });
@@ -358,27 +321,82 @@ function loadData() {
       const v = String(r['__EMPTY'] || '').trim();
       return v.startsWith('SB-') || /^[A-Z]+-\d{4}-\d+$/.test(v);
     }).map(r => ({
-      applicationId:  String(r['__EMPTY']        || '').trim(),
+      applicationId:   String(r['__EMPTY']        || '').trim(),
       applicationType: String(r['Application Type'] || '').trim(),
-      firstName:      String(r['FirstName']      || '').trim(),
-      lastName:       String(r['LastName']       || '').trim(),
-      name:           `${String(r['FirstName']||'').trim()} ${String(r['LastName']||'').trim()}`.trim(),
-      email:          String(r['Email']          || '').toLowerCase().trim(),
-      phone:          String(r['PhoneNumber']    || ''),
-      gender:         String(r['Gender']         || 'Not Specified').trim(),
-      currentState:   String(r['Current_State']  || '').trim(),
-      assignedMember: String(r['Assigned to']    || '').trim(),
-      callStatus:     String(r['Calling Status'] || 'Not Called').trim(),
-      queryStatus:    String(r['Call Status']    || '').trim(),
-      issueCategory:  '',
-      remark:         String(r['Remarks']        || '').trim(),
+      firstName:       String(r['FirstName']      || '').trim(),
+      lastName:        String(r['LastName']       || '').trim(),
+      name:            `${String(r['FirstName']||'').trim()} ${String(r['LastName']||'').trim()}`.trim(),
+      email:           String(r['Email']          || '').toLowerCase().trim(),
+      phone:           String(r['PhoneNumber']    || ''),
+      gender:          String(r['Gender']         || 'Not Specified').trim(),
+      currentState:    String(r['Current_State']  || '').trim(),
+      assignedMember:  String(r['Assigned to']    || '').trim(),
+      callStatus:      String(r['Calling Status'] || 'Not Called').trim(),
+      queryStatus:     String(r['Call Status']    || '').trim(),
+      issueCategory:   '',
+      remark:          String(r['Remarks']        || '').trim(),
     }));
     console.log(`  ✅ Calling Tracker: ${cache.calling.length} rows`);
   }
 
   cache.lastUpdated = new Date().toISOString();
-  const total = new Set([...cache.drafts.map(d=>d.applicationId), ...cache.applied.map(a=>a.applicationId)]).size;
+  const total = new Set([...cache.drafts.map(d=>d.applicationId),...cache.applied.map(a=>a.applicationId)]).size;
   console.log(`  📊 ${cache.registered.length} registered | ${cache.drafts.length} drafts | ${cache.applied.length} applied | ${total} unique\n`);
+}
+
+function loadData() {
+  // Fast path: pre-built JSON cache
+  if (fs.existsSync(CACHE_JSON)) {
+    const t0 = Date.now();
+    try {
+      const data = JSON.parse(fs.readFileSync(CACHE_JSON, 'utf8'));
+      cache.registered  = data.registered  || [];
+      cache.drafts      = data.drafts      || [];
+      cache.applied     = data.applied     || [];
+      cache.calling     = data.calling     || [];
+      cache.lastUpdated = data.lastUpdated || new Date().toISOString();
+      const total = new Set([...cache.drafts.map(d=>d.applicationId),...cache.applied.map(a=>a.applicationId)]).size;
+      console.log(`⚡ Loaded from cache.json in ${Date.now()-t0}ms — ${cache.registered.length} registered | ${cache.drafts.length} drafts | ${cache.applied.length} applied | ${total} unique`);
+      return;
+    } catch (e) {
+      console.warn('⚠️  cache.json parse error, falling back to Excel:', e.message);
+    }
+  }
+
+  // Slow path: parse Excel directly
+  console.log('\n📂 Loading data from', path.basename(DATA_FILE), '...');
+  if (!fs.existsSync(DATA_FILE)) {
+    console.error('❌ Data file not found:', DATA_FILE);
+    return;
+  }
+  const XLSX = require('xlsx');
+  const t0   = Date.now();
+  const wb   = XLSX.readFile(DATA_FILE, { cellDates: false });
+  console.log(`   Sheets: ${wb.SheetNames.join(', ')} (read in ${Date.now()-t0}ms)`);
+  parseWorkbook(wb);
+}
+
+// Parse an xlsx buffer (from memory upload) — no disk write for the xlsx
+function loadDataFromBuffer(buffer) {
+  console.log('\n📤 Loading data from uploaded buffer...');
+  const XLSX = require('xlsx');
+  const t0   = Date.now();
+  const wb   = XLSX.read(buffer, { cellDates: false });
+  console.log(`   Sheets: ${wb.SheetNames.join(', ')} (read in ${Date.now()-t0}ms)`);
+  parseWorkbook(wb);
+  // Persist updated cache to disk so restarts within the same instance use new data
+  try {
+    const outDir = path.dirname(CACHE_JSON);
+    if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+    fs.writeFileSync(CACHE_JSON, JSON.stringify({
+      registered: cache.registered, drafts: cache.drafts,
+      applied: cache.applied, calling: cache.calling,
+      lastUpdated: cache.lastUpdated,
+    }));
+    console.log('📝 cache.json updated from uploaded file');
+  } catch (e) {
+    console.warn('⚠️  Could not persist cache.json:', e.message);
+  }
 }
 
 function getCache() {
@@ -455,4 +473,4 @@ function getMockCache() {
   return { registered, drafts, applied, calling: [], lastUpdated: new Date().toISOString() };
 }
 
-module.exports = { loadData, getCache, normalizeDate, setMockMode, setApiMode, getMode, setDataFile };
+module.exports = { loadData, loadDataFromBuffer, getCache, normalizeDate, setMockMode, setApiMode, getMode, setDataFile };
