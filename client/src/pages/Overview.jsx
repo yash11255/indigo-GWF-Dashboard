@@ -252,7 +252,7 @@ function DateSection() {
             <span className="w-4 h-2 inline-block" style={{ background: IBM.blue60 }} />Draft
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-4 h-2 inline-block" style={{ background: IBM.green50 }} />Complete
+            <span className="w-4 h-2 inline-block" style={{ background: IBM.green50 }} />Applied
           </span>
         </div>
       </div>
@@ -274,7 +274,7 @@ function DateSection() {
               <YAxis tick={{ fontSize: 10, fill: IBM.gray60 }} tickLine={false} axisLine={false} />
               <Tooltip content={<IBMTooltip />} />
               <Area type="monotone" dataKey="draft"    name="Draft"    stroke={IBM.blue60} strokeWidth={2} fill="url(#gd)" />
-              <Area type="monotone" dataKey="complete" name="Complete" stroke={IBM.green50} strokeWidth={2} fill="url(#gc)" />
+              <Area type="monotone" dataKey="complete" name="Applied" stroke={IBM.green50} strokeWidth={2} fill="url(#gc)" />
             </AreaChart>
           : <BarChart data={fmt} barSize={6} barGap={1} margin={{ left: 0, right: 8 }}>
               <CartesianGrid strokeDasharray="3 0" stroke={IBM.gray20} vertical={false} />
@@ -282,7 +282,7 @@ function DateSection() {
               <YAxis tick={{ fontSize: 10, fill: IBM.gray60 }} tickLine={false} axisLine={false} />
               <Tooltip content={<IBMTooltip />} />
               <Bar dataKey="draft"    name="Draft"    fill={IBM.blue60}  radius={0} />
-              <Bar dataKey="complete" name="Complete" fill={IBM.green50} radius={0} />
+              <Bar dataKey="complete" name="Applied" fill={IBM.green50} radius={0} />
             </BarChart>
         }
       </ResponsiveContainer>
@@ -300,7 +300,7 @@ function RegionSection() {
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       {/* Pie */}
-      <DescPie data={pieData} colors={colors} height={220} totalLabel="All Applications" />
+      <DescPie data={pieData} colors={colors} height={220} totalLabel="Total Count" />
       {/* Horizontal bars */}
       <div className="space-y-3">
         {(data || []).map(r => {
@@ -314,9 +314,9 @@ function RegionSection() {
                   <span className="text-sm font-medium" style={{ color: IBM.gray100 }}>{r.region}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs" style={{ color: IBM.gray60 }}>
-                  <span style={{ color: IBM.blue60 }}>{r.draft.toLocaleString('en-IN')} D</span>
+                  <span style={{ color: IBM.blue60 }}>{r.draft.toLocaleString('en-IN')} Draft</span>
                   <span>·</span>
-                  <span style={{ color: IBM.green50 }}>{r.complete.toLocaleString('en-IN')} C</span>
+                  <span style={{ color: IBM.green50 }}>{r.complete.toLocaleString('en-IN')} Applied</span>
                   <span className="font-bold ml-1" style={{ color: IBM.gray100 }}>= {r.total.toLocaleString('en-IN')}</span>
                 </div>
               </div>
@@ -406,7 +406,7 @@ function IndiaMap() {
             <div className="absolute top-3 left-3 px-3 py-2 text-xs pointer-events-none z-10"
               style={{ background: IBM.gray90, color: '#fff', border: `1px solid ${IBM.gray80}` }}>
               <p className="font-semibold">{tooltip.name}</p>
-              <p style={{ color: IBM.blue40 }}>{tooltip.count.toLocaleString('en-IN')} applications</p>
+              <p style={{ color: IBM.blue40 }}>{tooltip.count.toLocaleString('en-IN')} students</p>
             </div>
           )}
 
@@ -452,28 +452,27 @@ function IndiaMap() {
 
 // ─── 4. DGCA Section ─────────────────────────────────────────────────────────
 function DGCASection() {
-  const { data: med, loading: ml } = useData('/data/dgca-medical');
-  const { data: comp, loading: cl } = useData('/data/dgca-computer');
+  const { data, loading } = useData('/data/dgca-combined');
   const COLORS = [IBM.green50, IBM.red50, IBM.gray50];
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-      <Card title="DGCA Medical Class 2" subtitle="Class 2 assessment — Complete submissions">
-        {ml ? <Skel /> : (
+      <Card title="DGCA Medical Class 2" subtitle="Class 2 assessment — all applicants">
+        {loading ? <Skel /> : (
           <DescPie
-            data={(med?.status || []).map(s => ({ name: s.label, value: s.count }))}
+            data={(data?.medical?.all || []).map(s => ({ name: s.label, value: s.count }))}
             colors={COLORS}
             height={200}
-            totalLabel="Complete Submissions"
+            totalLabel="Total Count"
           />
         )}
       </Card>
-      <Card title="DGCA Computer Number" subtitle="Computer number availability — Complete submissions">
-        {cl ? <Skel /> : (
+      <Card title="DGCA Computer Number" subtitle="Computer number availability — all applicants">
+        {loading ? <Skel /> : (
           <DescPie
-            data={['Yes','No','No Data'].map(k => ({ name: k, value: comp?.summary?.[k] || 0 }))}
+            data={(data?.computer?.all || []).map(s => ({ name: s.label, value: s.count }))}
             colors={COLORS}
             height={200}
-            totalLabel="Complete Submissions"
+            totalLabel="Total Count"
           />
         )}
       </Card>
@@ -488,7 +487,7 @@ function EmploymentSection() {
   const EMP_COLORS = [IBM.blue60, IBM.orange40, IBM.teal50, IBM.purple50, IBM.gray50];
   const pieData = (data || []).map(d => ({ name: d.label, value: d.Total }));
   return (
-    <DescPie data={pieData} colors={EMP_COLORS} height={220} totalLabel="All Applications" />
+    <DescPie data={pieData} colors={EMP_COLORS} height={220} totalLabel="Total Count" />
   );
 }
 
@@ -499,28 +498,7 @@ function EducationSection() {
   const EDU_COLORS = [IBM.green50, IBM.blue60, IBM.purple50, IBM.orange40, IBM.gray50];
   const pieData = (data || []).map(d => ({ name: d.label, value: d.Total }));
   return (
-    <DescPie data={pieData} colors={EDU_COLORS} height={220} totalLabel="All Applications" />
-  );
-}
-
-// ─── 7. Gender + Category ─────────────────────────────────────────────────────
-function GenderSection() {
-  const { data, loading } = useData('/data/gender-breakdown');
-  if (loading) return <Skel h="h-44" />;
-  const COLORS = [IBM.purple50, IBM.blue60, IBM.gray50];
-  const pieData = (data || []).map(d => ({ name: d.label, value: d.Total }));
-  return (
-    <DescPie data={pieData} colors={COLORS} height={200} totalLabel="All Applications" />
-  );
-}
-
-function CategorySection() {
-  const { data, loading } = useData('/data/category-breakdown');
-  if (loading) return <Skel h="h-44" />;
-  const COLORS = [IBM.blue60, IBM.orange40, IBM.teal50, IBM.purple50, IBM.red50, IBM.gray50];
-  const pieData = (data || []).map(d => ({ name: d.label, value: d.Total }));
-  return (
-    <DescPie data={pieData} colors={COLORS} height={200} totalLabel="All Applications" />
+    <DescPie data={pieData} colors={EDU_COLORS} height={220} totalLabel="Total Count" />
   );
 }
 
@@ -692,17 +670,17 @@ export default function Overview({ onReload }) {
           </div>
         ) : stats && (
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-            <KPI label="Total Registered"    value={stats.totalRegistered?.toLocaleString('en-IN')}  sub="Students with portal accounts"       color={IBM.blue60}   icon={kpiIcons.users} />
-            <KPI label="Draft Applications"  value={stats.totalDrafts?.toLocaleString('en-IN')}      sub={`${stats.conversionRate}% of registered`}  color={IBM.blue40} icon={kpiIcons.edit}  />
-            <KPI label="Final Applied"       value={stats.totalApplied?.toLocaleString('en-IN')}     sub={`${stats.draftToApplied}% converted from draft`} color={IBM.green50}  icon={kpiIcons.check} />
-            <KPI label="States Covered"      value={stats.uniqueStates}                              sub={`${stats.passportReady?.toLocaleString('en-IN')} passport-ready`}  color={IBM.purple50} icon={kpiIcons.map}   />
+            <KPI label="Total Registered"  value={stats.totalRegistered?.toLocaleString('en-IN')}  sub="Students with portal accounts"                   color={IBM.blue60}   icon={kpiIcons.users} />
+            <KPI label="In Draft"          value={stats.totalDrafts?.toLocaleString('en-IN')}      sub={`${stats.conversionRate}% of registered`}        color={IBM.blue40}   icon={kpiIcons.edit}  />
+            <KPI label="Applied"           value={stats.totalApplied?.toLocaleString('en-IN')}     sub={`${stats.draftToApplied}% converted from draft`} color={IBM.green50}  icon={kpiIcons.check} />
+            <KPI label="States Covered"    value={stats.uniqueStates}                              sub={`${stats.passportReady?.toLocaleString('en-IN')} passport-ready`}  color={IBM.purple50} icon={kpiIcons.map}   />
           </div>
         )}
 
         {/* ── Date-wise ── */}
         <Card
           title="Application Volume Over Time"
-          subtitle="Daily Draft and Complete submissions — switch between area and bar view"
+          subtitle="Daily Draft vs Applied submissions — switch between area and bar view"
         >
           <DateSection />
         </Card>
@@ -726,21 +704,11 @@ export default function Overview({ onReload }) {
 
         {/* ── Employment + Education ── */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-          <Card title="Employment Status" subtitle="Student / Employed / Unemployed — All applicants">
+          <Card title="Employment Status" subtitle="Student / Employed / Unemployed — Draft vs Applied">
             <EmploymentSection />
           </Card>
-          <Card title="Education Qualification" subtitle="Completed vs Pursuing — All applicants">
+          <Card title="Education Qualification" subtitle="Completed vs Pursuing — Draft vs Applied">
             <EducationSection />
-          </Card>
-        </div>
-
-        {/* ── Gender + Category ── */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-          <Card title="Gender Distribution" subtitle="From draft applications">
-            <GenderSection />
-          </Card>
-          <Card title="Category Breakdown" subtitle="General / OBC / SC / ST — Draft applications">
-            <CategorySection />
           </Card>
         </div>
 
